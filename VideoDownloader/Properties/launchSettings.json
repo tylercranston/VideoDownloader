@@ -2,6 +2,9 @@
   "profiles": {
     "VideoDownloader (Falcon)": {
       "commandName": "Project",
+      "environmentVariables": {
+        "VideoDownloaderStudio": "Falcon"
+      }
     },
     "VideoDownloader (NextDoorBuddies)": {
       "commandName": "Project",
