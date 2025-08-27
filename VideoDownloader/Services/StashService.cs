@@ -1,5 +1,6 @@
 ﻿using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
@@ -13,34 +14,31 @@ public interface IStashService
     /// Creates a Scene in StashApp for the given Video. Returns true on success.
     /// Reads configuration from appsettings under "Stash": { "Endpoint": "http://host:port/graphql", "ApiKey": "...", "HeaderName": "ApiKey" }
     /// </summary>
-    Task<bool> CreateSceneAsync(Video video, RootConfig cfg,CancellationToken ct, string? details = null, DateOnly? date = null, IEnumerable<string>? extraUrls = null);
+    Task<Video> CreateSceneAsync(Video video, CancellationToken ct, string? details = null, DateOnly? date = null, IEnumerable<string>? extraUrls = null);
 }
 
 
 public sealed class StashService : IStashService
 {
-    private readonly HttpClient _http;
-    private readonly IConfiguration _config;
-    private readonly ILogger<StashService> _log;
     private static readonly JsonSerializerOptions _json = new(JsonSerializerDefaults.Web) { WriteIndented = false };
-
     private readonly string _endpoint;
     private readonly string? _apiKey;
-    private readonly string _apiHeader;
+    private readonly HttpClient _http;
+    private readonly RootConfig _config;
+    private readonly ILogger<StashService> _log;
 
-    public StashService(HttpClient http, IConfiguration config, ILogger<StashService> log)
+    public StashService(HttpClient http, IOptions<RootConfig> config, ILogger<StashService> log)
     {
-        _http = http;
-        _config = config;
-        _log = log;
 
-        var s = config.GetSection("Stash");
-        _endpoint = s.GetValue<string>("StashUrl");
-        _apiKey = s.GetValue<string>("StashApiKey");
+        _endpoint = config.Value.Stash.StashUrl;
+        _apiKey = config.Value.Stash.StashApiKey;
+        _http = http;
+        _config = config.Value;
+        _log = log;
     }
 
 
-    public async Task<bool> CreateSceneAsync(Video video, RootConfig cfg, CancellationToken ct, string? details = null, DateOnly? date = null, IEnumerable<string>? extraUrls = null)
+    public async Task<Video> CreateSceneAsync(Video video, CancellationToken ct, string? details = null, DateOnly? date = null, IEnumerable<string>? extraUrls = null)
     {
         _log.LogInformation(string.Format($"{video.Id}: Creating '{video.Title}' Scene in Stash ..."));
 
@@ -78,7 +76,7 @@ query FindScenes($filter: FindFilterType!) {
     }
   }
 }";
-            var filePath = (Path.Combine(cfg.Config.StashPath, Path.GetFileName(video.DownloadedFile))).Replace('\\', '/');
+            var filePath = (Path.Combine(_config.Config.StashPath, Path.GetFileName(video.DownloadedFile))).Replace('\\', '/');
             var queryVars = new
             {
                 filter = new
@@ -203,7 +201,7 @@ mutation PerformerCreate($input: PerformerCreateInput!) {
                     input = new
                     {
                         name = performer.Name,
-                        url = performer.Url.Replace(cfg.Stash.PerformerUrlSearch, cfg.Stash.PerformerUrlReplace),
+                        url = performer.Url.Replace(_config.Stash.PerformerUrlSearch, _config.Stash.PerformerUrlReplace),
                         image = performer.CoverImage
                     }
                 };
@@ -290,7 +288,7 @@ mutation StudioCreate($input:StudioCreateInput!) {
             }
         } else
         {
-            studioId = cfg.Stash.StashStudioId;
+            studioId = _config.Stash.StashStudioId;
         }
 
         // Update scene
@@ -307,7 +305,7 @@ mutation SceneUpdate($input: SceneUpdateInput!) {
                 id = sceneId,
                 title = video.Title,
                 details = video.Details,
-                url = video.Url.Replace(cfg.Stash.SceneUrlSearch, cfg.Stash.SceneUrlReplace),
+                url = video.Url.Replace(_config.Stash.SceneUrlSearch, _config.Stash.SceneUrlReplace),
                 date = video.Date.Value.ToString("yyyy-MM-dd"),
                 tag_ids = tagIds,
                 performer_ids = performerIds,
@@ -319,8 +317,11 @@ mutation SceneUpdate($input: SceneUpdateInput!) {
 
         await GraphQLAsync(updateMutation, updateVars, ct);
 
+        video.StashComplete = true;
+
         _log.LogInformation($"{video.Id}: Updated scene in Stash for '{video.Title}'");
-        return true;
+
+        return video;
     }
 
     private async Task<JsonDocument?> GraphQLAsync(string query, object? variables, CancellationToken ct)

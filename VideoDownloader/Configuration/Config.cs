@@ -5,7 +5,7 @@ public record RootConfig
     public string Name { get; init; }
     public ConfigSection Config { get; init; } = new();
 
-    public VideoListSection VideoList { get; init; } = new();
+    public VideoCatalogSection VideoCatalog { get; init; } = new();
     public VideoScrapeSection VideoScrape { get; init; } = new();
 
     public StashSection Stash { get; init; } = new();
@@ -27,7 +27,7 @@ public record ConfigSection
     public int EndVideo { get; init; } = -1;
 }
 
-public record VideoListSection
+public record VideoCatalogSection
 {
     public string PagesUrl {  get; init; } = string.Empty;
     public string PagesButton { get; init; } = string.Empty;
@@ -39,6 +39,7 @@ public record VideoListSection
     public int VideosPerPage { get; init; } = 0;
     public bool ForceRefreshCatalog { get; init; } = false;
     public bool ResumeScrape { get; init; } = false;
+    public bool StopAfterCatalog { get; init; } = false;
 }
 
 public record VideoScrapeSection
@@ -56,12 +57,14 @@ public record VideoScrapeSection
     public string PerformerCoverImage { get; init; } = string.Empty;
     public string QualityLinkSelector { get; init; } = string.Empty;
     public bool ScrapeComplete { get; init; } = false;
+    public int WaitAfterPageLoadMs { get; init; } = 5000;
     public string[] PreferredQualities { get; init; } = new[] { "1080p", "720p", "540p", "480p", "360p", "240p", "160p" };
 }
 
 public record StashSection
 {
     public string StashUrl { get; init; } = string.Empty;
+    public string StashApiKey { get; init; } = string.Empty;
     public string StashStudioId { get; init; } = string.Empty;
     public string SceneUrlSearch { get; init; } = string.Empty;
     public string SceneUrlReplace { get; init; } = string.Empty;

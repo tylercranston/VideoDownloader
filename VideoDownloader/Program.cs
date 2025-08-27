@@ -13,7 +13,7 @@ namespace VideoDownloader
             var host = Host.CreateDefaultBuilder(args)
             .ConfigureAppConfiguration(cfg =>
             {
-                cfg.AddJsonFile("appsettings.Falcon.json", optional: false, reloadOnChange: true)
+                cfg.AddJsonFile("appsettings.NDB.json", optional: false, reloadOnChange: true)
                    .AddEnvironmentVariables();
             })
             .ConfigureServices((ctx, services) =>
@@ -30,11 +30,6 @@ namespace VideoDownloader
                 services.AddSingleton<IVideoScraper, VideoScraper>();
                 services.AddSingleton<IVideoDownloader, VideoDownloader>();
                 services.AddHttpClient<IStashService, StashService>();
-                //services.AddSingleton<ISceneDownloader, SceneDownloader>();
-                //services.AddHttpClient<IDownloadClient, DownloadClient>()
-                //    .ConfigurePrimaryHttpMessageHandler(sp => HttpMessageHandlerFactory.Create(sp));
-
-
                 services.AddHostedService<App>();
             })
             .ConfigureLogging(b => b.SetMinimumLevel(LogLevel.Information))

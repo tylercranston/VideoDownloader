@@ -2,54 +2,89 @@
 using Microsoft.Extensions.Options;
 using PuppeteerSharp;
 using VideoDownloader;
+using static System.Net.Mime.MediaTypeNames;
 
 namespace VideoDownloader;
 
 public interface IBrowserFactory : IAsyncDisposable
 {
-    Task<IBrowser> GetAsync(CancellationToken ct);
+    Task<IBrowser> GetBrowserAsync(CancellationToken ct);
+    Task<IPage> GetPageAsync(CancellationToken ct);
 }
 
 
 public sealed class BrowserFactory : IBrowserFactory
 {
-    private readonly RootConfig _cfg;
-    private readonly ILogger<BrowserFactory> _log;
     private IBrowser? _browser;
+    private IPage? _page;
+    private readonly RootConfig _config;
+    private readonly ILogger<BrowserFactory> _log;
 
-
-    public BrowserFactory(IOptions<RootConfig> cfg, ILogger<BrowserFactory> log)
+    public BrowserFactory(IOptions<RootConfig> config, ILogger<BrowserFactory> log)
     {
-        _cfg = cfg.Value;
+        _config = config.Value;
         _log = log;
     }
 
 
-    public async Task<IBrowser> GetAsync(CancellationToken ct)
+    public async Task<IBrowser> GetBrowserAsync(CancellationToken ct)
     {
         if (_browser != null) return _browser;
 
 
-        if (!string.IsNullOrWhiteSpace(_cfg.Config.WsEndpoint))
+        if (!string.IsNullOrWhiteSpace(_config.Config.WsEndpoint))
         {
-            _log.LogInformation("Connecting to existing browser at {Endpoint}", _cfg.Config.WsEndpoint);
+            _log.LogInformation("Connecting to existing browser at {Endpoint}", _config.Config.WsEndpoint);
             _browser = await Puppeteer.ConnectAsync(new ConnectOptions
             {
-                BrowserWSEndpoint = _cfg.Config.WsEndpoint,
+                BrowserWSEndpoint = _config.Config.WsEndpoint,
                 DefaultViewport = null
             });
         }
         else
         {
-            _log.LogInformation("Launching Chromium (Headless={Headless})", _cfg.Config.Headless);
+            _log.LogInformation("Launching Chromium (Headless={Headless})", _config.Config.Headless);
             _browser = await Puppeteer.LaunchAsync(new LaunchOptions
             {
-                Headless = _cfg.Config.Headless,
+                Headless = _config.Config.Headless,
                 DefaultViewport = null,
                 Args = new[] { "--disable-dev-shm-usage", "--no-sandbox" }
             });
         }
         return _browser;
+    }
+
+    public async Task<IPage> GetPageAsync(CancellationToken ct)
+    {
+        // If we already created it and it’s still open, reuse it
+        if (_page is { IsClosed: false })
+            return _page;
+
+        var browser = await GetBrowserAsync(ct);
+
+        // Create page or use existing
+        if (_config.Config.ExistingPage)
+        {
+            var pages = await browser.PagesAsync();
+            _page = pages.Length > 0 ? pages[0] : await browser.NewPageAsync();
+        }
+        else
+        {
+            _page = await browser.NewPageAsync();
+        }
+
+        // Set user agent if configured
+        if (!string.IsNullOrWhiteSpace(_config.Config.UserAgent))
+            await _page.SetUserAgentAsync(_config.Config.UserAgent);
+
+        // Optional login
+        //if (_config.Login is not null)
+        //{
+        //    _log.LogInformation("Signing in...");
+        //    await _login.SignInAsync(page, _config.Login, ct);
+        //}
+
+        return _page;
     }
 
 
