@@ -10,10 +10,17 @@ namespace VideoDownloader
     {
         public static async Task Main(string[] args)
         {
+            var studio = Environment.GetEnvironmentVariable("VideoDownloaderStudio");
+            
+            if (string.IsNullOrWhiteSpace(studio))
+            {
+                throw new Exception("Environment variable 'VideoDownloaderStudio' is not set.");
+            }
+
             var host = Host.CreateDefaultBuilder(args)
             .ConfigureAppConfiguration(cfg =>
             {
-                cfg.AddJsonFile("appsettings.NDB.json", optional: false, reloadOnChange: true)
+                cfg.AddJsonFile($"appsettings.{studio}.json", optional: false, reloadOnChange: true)
                    .AddEnvironmentVariables();
             })
             .ConfigureServices((ctx, services) =>

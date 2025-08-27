@@ -1,0 +1,13 @@
+{
+  "profiles": {
+    "VideoDownloader (Falcon)": {
+      "commandName": "Project",
+    },
+    "VideoDownloader (NextDoorBuddies)": {
+      "commandName": "Project",
+      "environmentVariables": {
+        "VideoDownloaderStudio": "NextDoorBuddies"
+      }
+    }
+  }
+}
