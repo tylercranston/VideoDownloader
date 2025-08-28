@@ -16,12 +16,13 @@ public record RootConfig
 public record ConfigSection
 {
     public string? WsEndpoint { get; init; }
+    public bool Headless { get; init; } = true;
+    public string[] Args { get; init; } = Array.Empty<string>();
     public bool ExistingPage { get; init; }
     public string? UserAgent { get; init; }
     public string DownloadPath { get; init; }
     public string MovePath { get; init; }
     public string StashPath { get; init; }
-    public bool Headless { get; init; } = true;
     public string VideoCachePath { get; init; }
     public int StartVideo { get; init; } = -1;
     public int EndVideo { get; init; } = -1;

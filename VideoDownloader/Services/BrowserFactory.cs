@@ -31,26 +31,18 @@ public sealed class BrowserFactory : IBrowserFactory
     {
         if (_browser != null) return _browser;
 
+        _log.LogInformation("Launching Chromium browser");
 
-        if (!string.IsNullOrWhiteSpace(_config.Config.WsEndpoint))
+        BrowserFetcher browserFetcher = new BrowserFetcher();
+        await browserFetcher.DownloadAsync();
+
+        _browser = await Puppeteer.LaunchAsync(new LaunchOptions
         {
-            _log.LogInformation("Connecting to existing browser at {Endpoint}", _config.Config.WsEndpoint);
-            _browser = await Puppeteer.ConnectAsync(new ConnectOptions
-            {
-                BrowserWSEndpoint = _config.Config.WsEndpoint,
-                DefaultViewport = null
-            });
-        }
-        else
-        {
-            _log.LogInformation("Launching Chromium (Headless={Headless})", _config.Config.Headless);
-            _browser = await Puppeteer.LaunchAsync(new LaunchOptions
-            {
-                Headless = _config.Config.Headless,
-                DefaultViewport = null,
-                Args = new[] { "--disable-dev-shm-usage", "--no-sandbox" }
-            });
-        }
+            Headless = _config.Config.Headless,
+            DefaultViewport = null,
+            Args = _config.Config.Args
+        });
+
         return _browser;
     }
 
@@ -58,7 +50,9 @@ public sealed class BrowserFactory : IBrowserFactory
     {
         // If we already created it and it’s still open, reuse it
         if (_page is { IsClosed: false })
+        {
             return _page;
+        }
 
         var browser = await GetBrowserAsync(ct);
 
@@ -92,8 +86,11 @@ public sealed class BrowserFactory : IBrowserFactory
     {
         if (_browser is not null)
         {
-            try { await _browser.CloseAsync(); }
-            catch { /* swallow on shutdown */ }
+            _log.LogInformation("Closing Chromium browser");
+            try { await _browser.CloseAsync(); } catch { /* swallow on shutdown */ }
+            try { await _browser.DisposeAsync(); } catch { /* swallow on shutdown */ }
+            _browser = null;
+            _page = null;
         }
     }
 }

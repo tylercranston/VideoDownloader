@@ -73,6 +73,9 @@ query FindScenes($filter: FindFilterType!) {
     scenes {
       id
       title
+      files {
+        path
+      }
     }
   }
 }";
@@ -87,7 +90,8 @@ query FindScenes($filter: FindFilterType!) {
             var querySceneResponse = await GraphQLAsync(queryScene, queryVars, ct);
             try
             {
-                sceneId = (querySceneResponse.RootElement.GetProperty("data").GetProperty("findScenes").GetProperty("scenes"))[0].GetProperty("id").ToString();
+                var scenesArray = querySceneResponse.RootElement.GetProperty("data").GetProperty("findScenes").GetProperty("scenes");
+                sceneId = scenesArray.EnumerateArray().Where(p => p.GetProperty("files")[0].GetProperty("path").GetString().ToUpper() == filePath.ToUpper()).Select(p => p.GetProperty("id").GetString()).FirstOrDefault();
             } catch
             {
                 sceneId = null;
@@ -123,7 +127,8 @@ query FindTags($filter: FindFilterType!) {
             string tagId = null;
             try
             {
-                tagId = (queryTagFindResponse.RootElement.GetProperty("data").GetProperty("findTags").GetProperty("tags"))[0].GetProperty("id").ToString();
+                var tagsArray = queryTagFindResponse.RootElement.GetProperty("data").GetProperty("findTags").GetProperty("tags");
+                tagId = tagsArray.EnumerateArray().Where(p => p.GetProperty("name").GetString().ToUpper() == tag.ToUpper()).Select(p => p.GetProperty("id").GetString()).FirstOrDefault();
             } catch
             {
                 tagId = null;
@@ -180,7 +185,7 @@ query FindPerformers($filter: FindFilterType!) {
             try
             {
                 var performersArray = queryPerformerFindResponse.RootElement.GetProperty("data").GetProperty("findPerformers").GetProperty("performers");
-                performerId = performersArray.EnumerateArray().Where(p => p.GetProperty("name").GetString() == performer.Name).Select(p => p.GetProperty("id").GetString()).FirstOrDefault();
+                performerId = performersArray.EnumerateArray().Where(p => p.GetProperty("name").GetString().ToUpper() == performer.Name.ToUpper()).Select(p => p.GetProperty("id").GetString()).FirstOrDefault();
             }
             catch
             {
@@ -259,7 +264,7 @@ query FindStudios($filter: FindFilterType!) {
             try
             {
                 var studiosArray = queryStudioFindResponse.RootElement.GetProperty("data").GetProperty("findStudios").GetProperty("studios");
-                studioId = studiosArray.EnumerateArray().Where(p => p.GetProperty("name").GetString() == video.Studio).Select(p => p.GetProperty("id").GetString()).FirstOrDefault();
+                studioId = studiosArray.EnumerateArray().Where(p => p.GetProperty("name").GetString().ToUpper() == video.Studio.ToUpper()).Select(p => p.GetProperty("id").GetString()).FirstOrDefault();
             }
             catch
             {

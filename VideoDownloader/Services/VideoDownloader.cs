@@ -78,26 +78,7 @@ public sealed class VideoDownloader : IVideoDownloader
                 {
                     new Exception(String.Format($"No matching quality link found. Page={video.PageNum}, Video={video.Title}, Url={video.Url}"));
                 }
-
-                string downloadedFile = await WaitForNewFileAsync(_config.Config.DownloadPath, ct);
-                string targetDir = _config.Config.MovePath;
-
-                string fileName = Path.GetFileNameWithoutExtension(downloadedFile);
-                string extension = Path.GetExtension(downloadedFile);
-
-                string destinationPath = Path.Combine(targetDir, fileName + extension);
-
-                int counter = 1;
-                while (File.Exists(destinationPath))
-                {
-                    destinationPath = Path.Combine(targetDir, $"{fileName} ({counter}){extension}");
-                    counter++;
-                }
-
-                _log.LogInformation($"{video.Id}: Moving {downloadedFile} to {destinationPath}");
-                File.Move(downloadedFile, destinationPath, overwrite: false);
-
-                video.DownloadedFile = destinationPath;
+                break;
             }
             catch (Exception ex)
             {
@@ -109,15 +90,32 @@ public sealed class VideoDownloader : IVideoDownloader
                 else
                 {
                     _log.LogWarning(ex, "Attempt {Attempt} failed, retrying...", attempt);
-                    var page = await _browserFactory.GetPageAsync(ct);
-                    if (!page.IsClosed)
-                    {
-                        await page.CloseAsync();
-                    }
+                    
+                    await _browserFactory.DisposeAsync();
                     await Task.Delay(1000);
                 }
             }
         }
+
+        string downloadedFile = await WaitForNewFileAsync(_config.Config.DownloadPath, ct);
+        string targetDir = _config.Config.MovePath;
+
+        string fileName = Path.GetFileNameWithoutExtension(downloadedFile);
+        string extension = Path.GetExtension(downloadedFile);
+
+        string destinationPath = Path.Combine(targetDir, fileName + extension);
+
+        int counter = 1;
+        while (File.Exists(destinationPath))
+        {
+            destinationPath = Path.Combine(targetDir, $"{fileName} ({counter}){extension}");
+            counter++;
+        }
+
+        _log.LogInformation($"{video.Id}: Moving {downloadedFile} to {destinationPath}");
+        File.Move(downloadedFile, destinationPath, overwrite: false);
+
+        video.DownloadedFile = destinationPath;
 
         return video;
     }

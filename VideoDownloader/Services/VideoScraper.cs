@@ -95,11 +95,7 @@ public sealed class VideoScraper : IVideoScraper
                 }
                 video.Performers = performersList;
 
-                // Set scrape complete
-                video.ScrapeComplete = true;
-
-                _log.LogInformation($"{video.Id}: Scraping complete ({video.Title} | Date={video.Date} | Performers={video.Performers.Count} | Tags={video.Tags.Count})");
-
+                break;
             }
             catch (Exception ex)
             {
@@ -111,15 +107,17 @@ public sealed class VideoScraper : IVideoScraper
                 else
                 {
                     _log.LogWarning(ex, "Attempt {Attempt} failed, retrying...", attempt);
-                    var page = await _browserFactory.GetPageAsync(ct);
-                    if (!page.IsClosed)
-                    {
-                        await page.CloseAsync();
-                    }
+                    
+                    await _browserFactory.DisposeAsync();
                     await Task.Delay(1000);
                 }
             }
         }
+
+        // Set scrape complete
+        video.ScrapeComplete = true;
+
+        _log.LogInformation($"{video.Id}: Scraping complete ({video.Title} | Date={video.Date} | Performers={video.Performers.Count} | Tags={video.Tags.Count})");
 
         return video;
     }
