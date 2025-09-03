@@ -10,6 +10,7 @@ namespace VideoDownloader;
 
 public sealed class App : BackgroundService
 {
+    private readonly IBrowserFactory _browser;
     private readonly IVideoCatalogService _catalog;
     private readonly IVideoRepository _repo;
     private readonly IVideoScraper _scraper;
@@ -19,6 +20,7 @@ public sealed class App : BackgroundService
     private readonly ILogger<App> _log;
 
     public App(
+        IBrowserFactory browser,
         IVideoCatalogService catalog,
         IVideoRepository repo,
         IVideoScraper scraper,
@@ -27,6 +29,7 @@ public sealed class App : BackgroundService
         IOptions<RootConfig> config,
         ILogger<App> log)
     {
+        _browser = browser;
         _catalog = catalog;
         _repo = repo;
         _scraper = scraper;
@@ -59,15 +62,17 @@ public sealed class App : BackgroundService
         for (var i = startVideo; i <= endVideo && !ct.IsCancellationRequested; i++)
         {
             var index = i - 1;
-            
+
             // Process single video
-            videos = await ProcessSingleVideoAsync(videos, index, cacheFile, ct);
+            await ProcessSingleVideoAsync(videos, index, cacheFile, ct);
         }
+
     }
 
-    private async Task<List<Video>> ProcessSingleVideoAsync(List<Video> videos, int index, string cacheFile, CancellationToken ct)
+    private async Task ProcessSingleVideoAsync(List<Video> videos, int index, string cacheFile, CancellationToken ct)
     {
         var video = videos[index];
+
 
         // 1) Download         
         if (video.DownloadedFile == null)
@@ -88,7 +93,7 @@ public sealed class App : BackgroundService
         }
 
         // 3) Stash
-        if (!video.StashComplete || _config.Stash.AddComplete)
+        if (!video.StashComplete || _config.Stash.ProcessComplete)
         {
             video = await _stash.CreateSceneAsync(video, ct);
             // Save state
@@ -96,7 +101,7 @@ public sealed class App : BackgroundService
             await _repo.SaveAsync(cacheFile, videos, ct);
         }
 
-        return videos;
+        return;
     }
 
     private void EnsureCleanDownloadFolder(string downloadPath)

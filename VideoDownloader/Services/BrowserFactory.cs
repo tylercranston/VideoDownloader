@@ -38,9 +38,9 @@ public sealed class BrowserFactory : IBrowserFactory
 
         _browser = await Puppeteer.LaunchAsync(new LaunchOptions
         {
-            Headless = _config.Config.Headless,
+            Headless = _config.Browser.Headless,
             DefaultViewport = null,
-            Args = _config.Config.Args
+            Args = _config.Browser.Args
         });
 
         return _browser;
@@ -57,7 +57,7 @@ public sealed class BrowserFactory : IBrowserFactory
         var browser = await GetBrowserAsync(ct);
 
         // Create page or use existing
-        if (_config.Config.ExistingPage)
+        if (_config.Browser.ExistingPage)
         {
             var pages = await browser.PagesAsync();
             _page = pages.Length > 0 ? pages[0] : await browser.NewPageAsync();
@@ -68,8 +68,8 @@ public sealed class BrowserFactory : IBrowserFactory
         }
 
         // Set user agent if configured
-        if (!string.IsNullOrWhiteSpace(_config.Config.UserAgent))
-            await _page.SetUserAgentAsync(_config.Config.UserAgent);
+        if (!string.IsNullOrWhiteSpace(_config.Browser.UserAgent))
+            await _page.SetUserAgentAsync(_config.Browser.UserAgent);
 
         // Optional login
         //if (_config.Login is not null)

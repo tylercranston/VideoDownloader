@@ -38,6 +38,7 @@ public sealed class VideoDownloader : IVideoDownloader
                 await page.GoToAsync(video.Url, new NavigationOptions { WaitUntil = new[] { WaitUntilNavigation.Networkidle0 } });
 
                 await page.WaitForXPathAsync(_config.VideoScrape.SceneDownloadButtonSelector);
+
                 var downloadButton = await page.XPathAsync(_config.VideoScrape.SceneDownloadButtonSelector);
                 await downloadButton[0].ClickAsync();
 
@@ -92,7 +93,7 @@ public sealed class VideoDownloader : IVideoDownloader
                     _log.LogWarning(ex, "Attempt {Attempt} failed, retrying...", attempt);
                     
                     await _browserFactory.DisposeAsync();
-                    await Task.Delay(1000);
+                    await Task.Delay(_config.Config.BrowserRestartDelay);
                 }
             }
         }

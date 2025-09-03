@@ -192,6 +192,9 @@ query FindPerformers($filter: FindFilterType!) {
                 performerId = null;
             }
 
+            var performerUrl = performer.Url.Replace(_config.Stash.PerformerUrlSearch, _config.Stash.PerformerUrlReplace);
+            var performerImage = performer.CoverImage.Replace(_config.Stash.PerformerCoverImageSearch, _config.Stash.PerformerCoverImageReplace);
+
             // Create Performer
             if (performerId == null)
             {
@@ -206,14 +209,15 @@ mutation PerformerCreate($input: PerformerCreateInput!) {
                     input = new
                     {
                         name = performer.Name,
-                        url = performer.Url.Replace(_config.Stash.PerformerUrlSearch, _config.Stash.PerformerUrlReplace),
-                        image = performer.CoverImage
+                        url = performerUrl,
+                        image = performerImage
                     }
                 };
 
                 var queryPerformerCreateResponse = await GraphQLAsync(queryPerformerCreate, queryPerformerCreateVars, ct);
                 performerIds.Add(queryPerformerCreateResponse.RootElement.GetProperty("data").GetProperty("performerCreate").GetProperty("id").ToString());
             }
+            // Update Performer
             else
             {
                 const string queryPerformerUpdate = @"
@@ -228,9 +232,8 @@ mutation PerformerUpdate($input: PerformerUpdateInput!) {
                     {
                         id = performerId,
                         name = performer.Name,
-                        url = performer.Url,
-                        image = performer.CoverImage
-
+                        url = performerUrl,
+                        image = performerImage
                     }
                 };
                 var queryPerformerUpdateResponse = await GraphQLAsync(queryPerformerUpdate, queryPerformerUpdateVars, ct);

@@ -36,64 +36,69 @@ public sealed class VideoScraper : IVideoScraper
 
                 _log.LogInformation(string.Format($"{video.Id}: Scraping '{video.Title}' ..."));
 
-                // Open video page
-                await page.GoToAsync(video.Url, new NavigationOptions
+                if (_config.VideoScrape.ScrapeScene)
                 {
-                    WaitUntil = new[] { WaitUntilNavigation.Networkidle2 }
-                });
-
-                await Task.Delay(_config.VideoScrape.WaitAfterPageLoadMs);
-
-                // Update Title
-                video.Title = await GetSingleTextAsync(page, _config.VideoScrape.SceneTitleSelector, true, ct);
-
-                // Update Details
-                video.Details = await GetSingleTextAsync(page, _config.VideoScrape.SceneDetailsSelector, true, ct);
-
-                // Update Cover Image
-                video.CoverImage = await GetSingleTextAsync(page, _config.VideoScrape.SceneCoverImageSelector, true, ct);
-
-                // Update Date
-                var dateText = await GetSingleTextAsync(page, _config.VideoScrape.SceneDateSelector, true, ct);
-                video.Date = TryParseDate(dateText);
-
-                // Update Tags
-                video.Tags = (await GetManyTextAsync(page, _config.VideoScrape.SceneTagsSelector, false, ct)).ToList();
-
-                // Update Studio
-                video.Studio = await GetSingleTextAsync(page, _config.VideoScrape.SceneStudioSelector, false, ct);
-
-                // Update Performers
-                video.Performers.Clear();
-                var performers = await page.XPathAsync(_config.VideoScrape.ScenePerformersSelector);
-                foreach (var performer in performers)
-                {
-                    _log.LogDebug(await performer.EvaluateFunctionAsync<string>("el => el.outerHTML"));
-                    var name = await (await performer.GetPropertyAsync("innerText")).JsonValueAsync<string>();
-                    var href = await (await performer.GetPropertyAsync("href")).JsonValueAsync<string>();
-
-                    video.Performers.Add(new Performer(name, href));
-                }
-
-                // Update performer details from performer page
-                var performersList = video.Performers;
-                foreach (var performer in performersList)
-                {
-                    // Open performer page
-                    await page.GoToAsync(performer.Url, new NavigationOptions
+                    // Open video page
+                    await page.GoToAsync(video.Url, new NavigationOptions
                     {
                         WaitUntil = new[] { WaitUntilNavigation.Networkidle2 }
                     });
 
                     await Task.Delay(_config.VideoScrape.WaitAfterPageLoadMs);
 
-                    string coverimage = await GetSingleTextAsync(page, _config.VideoScrape.PerformerCoverImage, true, ct);
+                    // Update Title
+                    video.Title = await GetSingleTextAsync(page, _config.VideoScrape.SceneTitleSelector, true, ct);
 
-                    var uri = new Uri(coverimage);
+                    // Update Details
+                    video.Details = await GetSingleTextAsync(page, _config.VideoScrape.SceneDetailsSelector, true, ct);
 
-                    performer.CoverImage = uri.GetLeftPart(UriPartial.Path);
+                    // Update Cover Image
+                    video.CoverImage = await GetSingleTextAsync(page, _config.VideoScrape.SceneCoverImageSelector, true, ct);
+
+                    // Update Date
+                    var dateText = await GetSingleTextAsync(page, _config.VideoScrape.SceneDateSelector, true, ct);
+                    video.Date = TryParseDate(dateText);
+
+                    // Update Tags
+                    video.Tags = (await GetManyTextAsync(page, _config.VideoScrape.SceneTagsSelector, false, ct)).ToList();
+
+                    // Update Studio
+                    video.Studio = await GetSingleTextAsync(page, _config.VideoScrape.SceneStudioSelector, false, ct);
+
+                    // Update Performers
+                    video.Performers.Clear();
+                    var performers = await page.XPathAsync(_config.VideoScrape.ScenePerformersSelector);
+                    foreach (var performer in performers)
+                    {
+                        _log.LogDebug(await performer.EvaluateFunctionAsync<string>("el => el.outerHTML"));
+                        var name = await (await performer.GetPropertyAsync("innerText")).JsonValueAsync<string>();
+                        var href = await (await performer.GetPropertyAsync("href")).JsonValueAsync<string>();
+
+                        video.Performers.Add(new Performer(name, href));
+                    }
+
                 }
-                video.Performers = performersList;
+
+                if (_config.VideoScrape.ScrapePerformers)
+                {
+
+                    // Update performer details from performer page
+                    var performersList = video.Performers;
+                    foreach (var performer in performersList)
+                    {
+                        // Open performer page
+                        await page.GoToAsync(performer.Url, new NavigationOptions
+                        {
+                            WaitUntil = new[] { WaitUntilNavigation.Networkidle2 }
+                        });
+
+                        await Task.Delay(_config.VideoScrape.WaitAfterPageLoadMs);
+
+                        // Update Cover Image
+                        performer.CoverImage = await GetSingleTextAsync(page, _config.VideoScrape.PerformerCoverImage, true, ct);
+                    }
+                    video.Performers = performersList;
+                }
 
                 break;
             }
@@ -109,7 +114,7 @@ public sealed class VideoScraper : IVideoScraper
                     _log.LogWarning(ex, "Attempt {Attempt} failed, retrying...", attempt);
                     
                     await _browserFactory.DisposeAsync();
-                    await Task.Delay(1000);
+                    await Task.Delay(_config.Config.BrowserRestartDelay);
                 }
             }
         }

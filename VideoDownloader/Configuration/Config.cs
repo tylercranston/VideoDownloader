@@ -4,10 +4,9 @@ public record RootConfig
 {
     public string Name { get; init; }
     public ConfigSection Config { get; init; } = new();
-
+    public BrowserSection Browser { get; init; } = new();
     public VideoCatalogSection VideoCatalog { get; init; } = new();
     public VideoScrapeSection VideoScrape { get; init; } = new();
-
     public StashSection Stash { get; init; } = new();
     public List<CookieItem> Cookies { get; init; } = new();
 }
@@ -15,17 +14,22 @@ public record RootConfig
 
 public record ConfigSection
 {
-    public string? WsEndpoint { get; init; }
-    public bool Headless { get; init; } = true;
-    public string[] Args { get; init; } = Array.Empty<string>();
-    public bool ExistingPage { get; init; }
-    public string? UserAgent { get; init; }
     public string DownloadPath { get; init; }
     public string MovePath { get; init; }
     public string StashPath { get; init; }
     public string VideoCachePath { get; init; }
     public int StartVideo { get; init; } = -1;
     public int EndVideo { get; init; } = -1;
+    public int BrowserRestartDelay { get; init; } = 5000;
+}
+
+public record BrowserSection
+{
+    public bool Headless { get; init; } = false;
+    public string[] Args { get; init; } = Array.Empty<string>();
+    public bool ExistingPage { get; init; } = true;
+    public string? UserAgent { get; init; }
+
 }
 
 public record VideoCatalogSection
@@ -57,8 +61,10 @@ public record VideoScrapeSection
     public string SceneCoverImageSelector { get; init; } = string.Empty;
     public string PerformerCoverImage { get; init; } = string.Empty;
     public string QualityLinkSelector { get; init; } = string.Empty;
+    public bool ScrapeScene { get; init; } = true;
+    public bool ScrapePerformers { get; init; } = true;
     public bool ScrapeComplete { get; init; } = false;
-    public int WaitAfterPageLoadMs { get; init; } = 5000;
+    public int WaitAfterPageLoadMs { get; init; } = 2000;
     public string[] PreferredQualities { get; init; } = new[] { "1080p", "720p", "540p", "480p", "360p", "240p", "160p" };
 }
 
@@ -71,7 +77,9 @@ public record StashSection
     public string SceneUrlReplace { get; init; } = string.Empty;
     public string PerformerUrlSearch { get; init; } = string.Empty;
     public string PerformerUrlReplace { get; init; } = string.Empty;
-    public bool AddComplete { get; init; } = false;
+    public string PerformerCoverImageSearch { get; init; } = string.Empty;
+    public string PerformerCoverImageReplace { get; init; } = string.Empty;
+    public bool ProcessComplete { get; init; } = false;
 
 }
 
