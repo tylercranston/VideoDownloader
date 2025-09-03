@@ -83,7 +83,7 @@ public sealed class VideoDownloader : IVideoDownloader
             }
             catch (Exception ex)
             {
-                if (attempt == maxRetries)
+                if (attempt == maxRetries || ct.IsCancellationRequested)
                 {
                     _log.LogWarning(ex, "Operation failed after {Attempts} attempts", maxRetries);
                     throw;
@@ -91,9 +91,9 @@ public sealed class VideoDownloader : IVideoDownloader
                 else
                 {
                     _log.LogWarning(ex, "Attempt {Attempt} failed, retrying...", attempt);
-                    
+
                     await _browserFactory.DisposeAsync();
-                    await Task.Delay(_config.Config.BrowserRestartDelay);
+                    await Task.Delay(_config.Config.BrowserRestartDelay, ct);
                 }
             }
         }

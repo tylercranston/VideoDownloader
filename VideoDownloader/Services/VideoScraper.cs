@@ -57,7 +57,7 @@ public sealed class VideoScraper : IVideoScraper
 
                     // Update Date
                     var dateText = await GetSingleTextAsync(page, _config.VideoScrape.SceneDateSelector, true, ct);
-                    video.Date = TryParseDate(dateText);
+                    video.Date = TryParseDate(dateText, _config.VideoScrape.DateFormat);
 
                     // Update Tags
                     video.Tags = (await GetManyTextAsync(page, _config.VideoScrape.SceneTagsSelector, false, ct)).ToList();
@@ -104,7 +104,7 @@ public sealed class VideoScraper : IVideoScraper
             }
             catch (Exception ex)
             {
-                if (attempt == maxRetries)
+                if (attempt == maxRetries || ct.IsCancellationRequested)
                 {
                     _log.LogWarning(ex, "Operation failed after {Attempts} attempts", maxRetries);
                     throw;
@@ -114,7 +114,7 @@ public sealed class VideoScraper : IVideoScraper
                     _log.LogWarning(ex, "Attempt {Attempt} failed, retrying...", attempt);
                     
                     await _browserFactory.DisposeAsync();
-                    await Task.Delay(_config.Config.BrowserRestartDelay);
+                    await Task.Delay(_config.Config.BrowserRestartDelay, ct);
                 }
             }
         }
@@ -157,23 +157,30 @@ public sealed class VideoScraper : IVideoScraper
         return list;
     }
 
-    private static DateOnly? TryParseDate(string? raw)
+    private static DateOnly? TryParseDate(string? raw, string dateFormat)
     {
         if (string.IsNullOrWhiteSpace(raw)) return null;
 
-        // Try a few common formats, add your site’s exact format if known
-        string[] fmts = { "yyyy-MM-dd", "MM/dd/yyyy", "dd/MM/yyyy", "MMM d, yyyy", "d MMM yyyy" };
-        foreach (var f in fmts)
+        if (DateTime.TryParseExact(raw, dateFormat, System.Globalization.CultureInfo.InvariantCulture,
+                                    System.Globalization.DateTimeStyles.None, out var dt))
         {
-            if (DateTime.TryParseExact(raw, f, System.Globalization.CultureInfo.InvariantCulture,
-                                       System.Globalization.DateTimeStyles.None, out var dt))
-                return DateOnly.FromDateTime(dt);
+            return DateOnly.FromDateTime(dt);
         }
 
-        // Fallback to loose parse
-        if (DateTime.TryParse(raw, out var any))
-            return DateOnly.FromDateTime(any);
+        throw new FormatException($"Date '{raw}' does not match format '{dateFormat}'");
 
-        return null;
+        //// Try a few common formats, add your site’s exact format if known
+        //string[] fmts = { "yyyy-MM-dd", "MM/dd/yyyy", "dd/MM/yyyy", "MMM d, yyyy", "d MMM yyyy" };
+        //foreach (var f in fmts)
+        //{
+        //    if (DateTime.TryParseExact(raw, f, System.Globalization.CultureInfo.InvariantCulture,
+        //                               System.Globalization.DateTimeStyles.None, out var dt))
+        //        return DateOnly.FromDateTime(dt);
+        //}
+
+        //// Fallback to loose parse
+        //if (DateTime.TryParse(raw, out var any))
+        //    return DateOnly.FromDateTime(any);
+        //return null;
     }
 }

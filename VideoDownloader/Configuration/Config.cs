@@ -61,6 +61,7 @@ public record VideoScrapeSection
     public string SceneCoverImageSelector { get; init; } = string.Empty;
     public string PerformerCoverImage { get; init; } = string.Empty;
     public string QualityLinkSelector { get; init; } = string.Empty;
+    public string DateFormat { get; init; } = "yyyy-MM-dd"; // "yyyy-MM-dd", "MM/dd/yyyy", "dd/MM/yyyy", "MMM d, yyyy", "d MMM yyyy"
     public bool ScrapeScene { get; init; } = true;
     public bool ScrapePerformers { get; init; } = true;
     public bool ScrapeComplete { get; init; } = false;

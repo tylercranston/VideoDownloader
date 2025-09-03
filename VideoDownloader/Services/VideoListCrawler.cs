@@ -71,20 +71,17 @@ public sealed class VideoListCrawler : IVideoListCrawler
             }
             catch (Exception ex)
             {
-                if (attempt == maxRetries)
+                if (attempt == maxRetries || ct.IsCancellationRequested)
                 {
-                    _log.LogWarning(ex, "Operation failed on page {Page} after {Attempts} attempts", pageNum, maxRetries);
+                    _log.LogWarning(ex, "Operation failed after {Attempts} attempts", maxRetries);
                     throw;
                 }
                 else
                 {
-                    _log.LogWarning(ex, "Attempt {Attempt} failed on page {Page}, retrying...", attempt, pageNum);
-                    var page = await _browserFactory.GetPageAsync(ct);
-                    if (!page.IsClosed)
-                    {
-                        await page.CloseAsync();
-                    }
-                    await Task.Delay(1000);
+                    _log.LogWarning(ex, "Attempt {Attempt} failed, retrying...", attempt);
+
+                    await _browserFactory.DisposeAsync();
+                    await Task.Delay(_config.Config.BrowserRestartDelay, ct);
                 }
             }
         }
