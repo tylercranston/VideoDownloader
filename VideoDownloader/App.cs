@@ -49,7 +49,7 @@ public sealed class App : BackgroundService
 
         // Catalog all videos
         var videos = await _catalog.GetAllAsync(cacheFile, ct);
-        _log.LogInformation("Catalog contains {Count} videos", videos.Count);
+        _log.LogInformation($"Catalog contains {videos.Count} videos");
 
         // Process videos
         await ProcessVideosAsync(videos, cacheFile, ct);

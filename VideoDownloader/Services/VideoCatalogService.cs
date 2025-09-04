@@ -36,7 +36,7 @@ public sealed class VideoCatalogService : IVideoCatalogService
             all = await _repo.LoadAsync(cacheFile, ct);
             if (all.Count > 0)
             {
-                _log.LogInformation("Using cached catalog ({Count} videos)", all.Count);
+                _log.LogInformation($"Using cached catalog ({all.Count} videos)");
                 if (!_config.VideoCatalog.ResumeScrape)
                 {
                     ct.ThrowIfCancellationRequested();
@@ -46,7 +46,10 @@ public sealed class VideoCatalogService : IVideoCatalogService
             }
         }
 
-        _log.LogInformation("Building catalog by crawling pages {Start}..{End}", _config.VideoCatalog.StartPage, _config.VideoCatalog.EndPage);
+        var startPage = _config.VideoCatalog.StartPage;
+        var endPage = _config.VideoCatalog.EndPage;
+
+        _log.LogInformation($"Building catalog by crawling pages {startPage}..{endPage}");
         
         for (int i = _config.VideoCatalog.StartPage; i <= _config.VideoCatalog.EndPage && !ct.IsCancellationRequested; i++)
         {

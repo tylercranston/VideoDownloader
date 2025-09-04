@@ -50,12 +50,12 @@ public sealed class VideoListCrawler : IVideoListCrawler
 
                 if (videoTitles.Length != videoAnchors.Length)
                 {
-                    throw new Exception(String.Format("Titles and Links on page must be equal (Page:{0}, Titles: {1}, Links: {2})", pageNum, videoTitles.Length, videoAnchors.Length));
+                    throw new Exception($"Titles and Links on page must be equal (Page:{pageNum}, Titles: {videoTitles.Length}, Links: {videoAnchors.Length})");
                 }
 
                 if (_config.VideoCatalog.VideosPerPage != 0 && videoTitles.Length != _config.VideoCatalog.VideosPerPage && pageNum != _config.VideoCatalog.EndPage)
                 {
-                    throw new Exception(String.Format("Number of videos on page not found (Page:{0}, Expected: {1}, Found: {2})", pageNum, _config.VideoCatalog.VideosPerPage, videoTitles.Length));
+                    throw new Exception($"Number of videos on page not found (Page: {pageNum}, Expected: {_config.VideoCatalog.VideosPerPage}, Found: {videoTitles.Length})");
                 }
 
                 break;
