@@ -87,9 +87,13 @@ public sealed class VideoDownloader : IVideoDownloader
             }
             catch (Exception ex)
             {
-                if (attempt == maxRetries || ct.IsCancellationRequested)
+                if (ct.IsCancellationRequested)
                 {
-                    _log.LogWarning(ex, $"Operation failed after {maxRetries} attempts");
+                    throw;
+                }
+                else if (attempt == maxRetries)
+                {
+                    _log.LogWarning(ex, $"Operation failed after {attempt} attempts");
                     throw;
                 }
                 else

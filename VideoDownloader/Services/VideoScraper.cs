@@ -46,6 +46,8 @@ public sealed class VideoScraper : IVideoScraper
 
                     await Task.Delay(_config.VideoScrape.WaitAfterPageLoadMs);
 
+                    ct.ThrowIfCancellationRequested();
+
                     // Update Title
                     video.Title = await GetSingleTextAsync(page, _config.VideoScrape.SceneTitleSelector, true, ct);
 
@@ -77,6 +79,8 @@ public sealed class VideoScraper : IVideoScraper
                         video.Performers.Add(new Performer(name, href));
                     }
 
+                    ct.ThrowIfCancellationRequested();
+
                 }
 
                 if (_config.VideoScrape.ScrapePerformers)
@@ -94,8 +98,12 @@ public sealed class VideoScraper : IVideoScraper
 
                         await Task.Delay(_config.VideoScrape.WaitAfterPageLoadMs);
 
+                        ct.ThrowIfCancellationRequested();
+
                         // Update Cover Image
                         performer.CoverImage = await GetSingleTextAsync(page, _config.VideoScrape.PerformerCoverImage, true, ct);
+
+                        ct.ThrowIfCancellationRequested();
                     }
                     video.Performers = performersList;
                 }
@@ -104,15 +112,19 @@ public sealed class VideoScraper : IVideoScraper
             }
             catch (Exception ex)
             {
-                if (attempt == maxRetries || ct.IsCancellationRequested)
+                if (ct.IsCancellationRequested)
                 {
-                    _log.LogWarning(ex, $"Operation failed after {maxRetries} attempts");
+                    throw;
+                }
+                else if (attempt == maxRetries)
+                {
+                    _log.LogWarning(ex, $"Operation failed after {attempt} attempts");
                     throw;
                 }
                 else
                 {
                     _log.LogWarning(ex, $"Attempt {attempt} failed, retrying...");
-                    
+
                     await _browserFactory.DisposeAsync();
                     await Task.Delay(_config.Config.BrowserRestartDelay, ct);
                 }
