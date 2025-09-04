@@ -45,7 +45,7 @@ public sealed class App : BackgroundService
         var cacheFile = Path.Combine(_config.Config.VideoCachePath, String.Format("{0}.json", _config.Name));
 
         // Exit application if download folder is not empty
-        EnsureCleanDownloadFolder(_config.Config.DownloadPath);
+        EnsureCleanDownloadFolder(_config.VideoDownloader.DownloadPath);
 
         // Catalog all videos
         var videos = await _catalog.GetAllAsync(cacheFile, ct);
@@ -73,9 +73,8 @@ public sealed class App : BackgroundService
     {
         var video = videos[index];
 
-
         // 1) Download         
-        if (video.DownloadedFile == null)
+        if (string.IsNullOrWhiteSpace(video.DownloadedFile))
         {
             video = await _downloader.DownloadVideoAsync(video, ct);
             // Save state

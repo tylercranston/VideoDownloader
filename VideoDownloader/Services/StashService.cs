@@ -79,7 +79,7 @@ query FindScenes($filter: FindFilterType!) {
     }
   }
 }";
-            var filePath = (Path.Combine(_config.Config.StashPath, Path.GetFileName(video.DownloadedFile))).Replace('\\', '/');
+            var filePath = (Path.Combine(_config.Stash.StashPath, Path.GetFileName(video.DownloadedFile))).Replace('\\', '/');
             var queryVars = new
             {
                 filter = new
@@ -192,8 +192,16 @@ query FindPerformers($filter: FindFilterType!) {
                 performerId = null;
             }
 
-            var performerUrl = performer.Url.Replace(_config.Stash.PerformerUrlSearch, _config.Stash.PerformerUrlReplace);
-            var performerImage = performer.CoverImage.Replace(_config.Stash.PerformerCoverImageSearch, _config.Stash.PerformerCoverImageReplace);
+            var performerUrl = performer.Url;
+            if (!string.IsNullOrWhiteSpace(_config.Stash.PerformerUrlSearch))
+            {
+                performerUrl = performerUrl.Replace(_config.Stash.PerformerUrlSearch, _config.Stash.PerformerUrlReplace);
+            }
+            var performerImage = performer.CoverImage;
+            if (!string.IsNullOrWhiteSpace(_config.Stash.PerformerCoverImageSearch))
+            {
+                performerImage = performerImage.Replace(_config.Stash.PerformerCoverImageSearch, _config.Stash.PerformerCoverImageReplace);
+            }
 
             // Create Performer
             if (performerId == null)
@@ -328,6 +336,8 @@ mutation SceneUpdate($input: SceneUpdateInput!) {
         video.StashComplete = true;
 
         _log.LogInformation($"{video.Id}: Updated scene in Stash for '{video.Title}'");
+
+        ct.ThrowIfCancellationRequested();
 
         return video;
     }

@@ -28,25 +28,25 @@ public sealed class VideoListCrawler : IVideoListCrawler
 
     public async Task<List<Video>> CrawlVideoLinksOnPageAsync(int pageNum, CancellationToken ct)
     {
-        var videos = new List<Video>();
+        IElementHandle[] videoTitles = Array.Empty<IElementHandle>();
+        IElementHandle[] videoAnchors = Array.Empty<IElementHandle>();
 
         int maxRetries = 3;
+
         for (int attempt = 1; attempt <= maxRetries; attempt++)
         {
             try
             {
-                videos.Clear();
-
                 var page = await _browserFactory.GetPageAsync(ct);
 
                 var pageUrl = string.Format(_config.VideoCatalog.PagesUrl, pageNum);
                 await page.GoToAsync(pageUrl, new NavigationOptions { WaitUntil = new[] { WaitUntilNavigation.Networkidle0 } });
                 await PageExtensions.ScrollToEndAsync(page);
 
-                await Task.Delay(1000);
+                await Task.Delay(_config.VideoCatalog.WaitAfterPageLoadMs);
 
-                var videoTitles = await page.XPathAsync(_config.VideoCatalog.VideoListTitle);
-                var videoAnchors = await page.XPathAsync(_config.VideoCatalog.VideoListLink);
+                videoTitles = await page.XPathAsync(_config.VideoCatalog.VideoListTitle);
+                videoAnchors = await page.XPathAsync(_config.VideoCatalog.VideoListLink);
 
                 if (videoTitles.Length != videoAnchors.Length)
                 {
@@ -58,7 +58,33 @@ public sealed class VideoListCrawler : IVideoListCrawler
                     throw new Exception(String.Format("Number of videos on page not found (Page:{0}, Expected: {1}, Found: {2})", pageNum, _config.VideoCatalog.VideosPerPage, videoTitles.Length));
                 }
 
-                for (int i = 0; i < videoAnchors.Length; i++)
+                break;
+            }
+            catch (Exception ex)
+            {
+                if (attempt == maxRetries || ct.IsCancellationRequested)
+                {
+                    _log.LogWarning(ex, $"Operation failed after {maxRetries} attempts");
+                    throw;
+                }
+                else
+                {
+                    _log.LogWarning(ex, $"Attempt {attempt} failed, retrying...");
+
+                    await _browserFactory.DisposeAsync();
+                    await Task.Delay(_config.Config.BrowserRestartDelay, ct);
+                }
+            }
+        }
+        ct.ThrowIfCancellationRequested();
+
+        var videos = new List<Video>();
+
+        for (int i = 0; i < _config.VideoCatalog.VideosPerPage - 1; i++)
+        {
+            for (int attempt = 1; attempt <= maxRetries; attempt++)
+            {
+                try
                 {
                     var title = await (await videoTitles[i].GetPropertyAsync("innerText")).JsonValueAsync<string>();
                     var href = await (await videoAnchors[i].GetPropertyAsync("href")).JsonValueAsync<string>();
@@ -67,24 +93,28 @@ public sealed class VideoListCrawler : IVideoListCrawler
                         continue;
 
                     videos.Add(new Video(title.Trim(), href, pageNum));
-                }
-            }
-            catch (Exception ex)
-            {
-                if (attempt == maxRetries || ct.IsCancellationRequested)
-                {
-                    _log.LogWarning(ex, "Operation failed after {Attempts} attempts", maxRetries);
-                    throw;
-                }
-                else
-                {
-                    _log.LogWarning(ex, "Attempt {Attempt} failed, retrying...", attempt);
 
-                    await _browserFactory.DisposeAsync();
-                    await Task.Delay(_config.Config.BrowserRestartDelay, ct);
+                    break;
+                }
+                catch (Exception ex)
+                {
+                    if (attempt == maxRetries || ct.IsCancellationRequested)
+                    {
+                        _log.LogWarning(ex, $"Operation failed after {maxRetries} attempts");
+                        throw;
+                    }
+                    else
+                    {
+                        _log.LogWarning(ex, $"Attempt {attempt} failed, retrying...");
+
+                        await _browserFactory.DisposeAsync();
+                        await Task.Delay(_config.Config.BrowserRestartDelay, ct);
+                    }
                 }
             }
         }
+        ct.ThrowIfCancellationRequested();
+
         return videos;
     }
 }

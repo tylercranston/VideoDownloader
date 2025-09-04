@@ -22,6 +22,7 @@ public sealed class FileVideoRepository : IVideoRepository
         await using var fs = File.OpenRead(path);
         var list = await JsonSerializer.DeserializeAsync<List<Video>>(fs, _json, ct) ?? new();
         _log.LogInformation("Loaded {Count} videos from {Path}", list.Count, Path.GetFullPath(path));
+        ct.ThrowIfCancellationRequested();
         return list;
     }
 
@@ -29,7 +30,8 @@ public sealed class FileVideoRepository : IVideoRepository
     {
         Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(path))!);
         await using var fs = File.Create(path);
-        await JsonSerializer.SerializeAsync(fs, videos, _json, ct);
+        await JsonSerializer.SerializeAsync(fs, videos, _json);
         _log.LogInformation("Saved {Count} videos to {Path}", videos.Count, Path.GetFullPath(path));
+        ct.ThrowIfCancellationRequested();
     }
 }

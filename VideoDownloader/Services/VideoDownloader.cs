@@ -85,12 +85,12 @@ public sealed class VideoDownloader : IVideoDownloader
             {
                 if (attempt == maxRetries || ct.IsCancellationRequested)
                 {
-                    _log.LogWarning(ex, "Operation failed after {Attempts} attempts", maxRetries);
+                    _log.LogWarning(ex, $"Operation failed after {maxRetries} attempts");
                     throw;
                 }
                 else
                 {
-                    _log.LogWarning(ex, "Attempt {Attempt} failed, retrying...", attempt);
+                    _log.LogWarning(ex, $"Attempt {attempt} failed, retrying...");
 
                     await _browserFactory.DisposeAsync();
                     await Task.Delay(_config.Config.BrowserRestartDelay, ct);
@@ -98,8 +98,8 @@ public sealed class VideoDownloader : IVideoDownloader
             }
         }
 
-        string downloadedFile = await WaitForNewFileAsync(_config.Config.DownloadPath, ct);
-        string targetDir = _config.Config.MovePath;
+        string downloadedFile = await WaitForNewFileAsync(_config.VideoDownloader.DownloadPath, ct);
+        string targetDir = _config.VideoDownloader.MovePath;
 
         string fileName = Path.GetFileNameWithoutExtension(downloadedFile);
         string extension = Path.GetExtension(downloadedFile);
@@ -114,9 +114,19 @@ public sealed class VideoDownloader : IVideoDownloader
         }
 
         _log.LogInformation($"{video.Id}: Moving {downloadedFile} to {destinationPath}");
-        File.Move(downloadedFile, destinationPath, overwrite: false);
+        
+        if (_config.VideoDownloader.DeleteAfterDownload)
+        {
+            File.Delete(downloadedFile);
+        }
+        else
+        {
+            File.Move(downloadedFile, destinationPath, overwrite: false);
+        }
 
         video.DownloadedFile = destinationPath;
+
+        ct.ThrowIfCancellationRequested();
 
         return video;
     }

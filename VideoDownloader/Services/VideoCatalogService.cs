@@ -39,6 +39,8 @@ public sealed class VideoCatalogService : IVideoCatalogService
                 _log.LogInformation("Using cached catalog ({Count} videos)", all.Count);
                 if (!_config.VideoCatalog.ResumeScrape)
                 {
+                    ct.ThrowIfCancellationRequested();
+
                     return all;
                 }
             }
@@ -57,6 +59,8 @@ public sealed class VideoCatalogService : IVideoCatalogService
             _log.LogInformation("Stopping after catalog as configured.");
             Environment.Exit(0);
         }
+        ct.ThrowIfCancellationRequested();
+
         return all;
     }
 }

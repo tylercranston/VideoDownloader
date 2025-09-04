@@ -106,12 +106,12 @@ public sealed class VideoScraper : IVideoScraper
             {
                 if (attempt == maxRetries || ct.IsCancellationRequested)
                 {
-                    _log.LogWarning(ex, "Operation failed after {Attempts} attempts", maxRetries);
+                    _log.LogWarning(ex, $"Operation failed after {maxRetries} attempts");
                     throw;
                 }
                 else
                 {
-                    _log.LogWarning(ex, "Attempt {Attempt} failed, retrying...", attempt);
+                    _log.LogWarning(ex, $"Attempt {attempt} failed, retrying...");
                     
                     await _browserFactory.DisposeAsync();
                     await Task.Delay(_config.Config.BrowserRestartDelay, ct);
@@ -123,6 +123,8 @@ public sealed class VideoScraper : IVideoScraper
         video.ScrapeComplete = true;
 
         _log.LogInformation($"{video.Id}: Scraping complete ({video.Title} | Date={video.Date} | Performers={video.Performers.Count} | Tags={video.Tags.Count})");
+
+        ct.ThrowIfCancellationRequested();
 
         return video;
     }

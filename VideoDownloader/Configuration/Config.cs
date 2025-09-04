@@ -6,6 +6,7 @@ public record RootConfig
     public ConfigSection Config { get; init; } = new();
     public BrowserSection Browser { get; init; } = new();
     public VideoCatalogSection VideoCatalog { get; init; } = new();
+    public VideoDownloaderSection VideoDownloader { get; init; } = new();
     public VideoScrapeSection VideoScrape { get; init; } = new();
     public StashSection Stash { get; init; } = new();
     public List<CookieItem> Cookies { get; init; } = new();
@@ -14,9 +15,6 @@ public record RootConfig
 
 public record ConfigSection
 {
-    public string DownloadPath { get; init; }
-    public string MovePath { get; init; }
-    public string StashPath { get; init; }
     public string VideoCachePath { get; init; }
     public int StartVideo { get; init; } = -1;
     public int EndVideo { get; init; } = -1;
@@ -32,7 +30,14 @@ public record BrowserSection
 
 }
 
-public record VideoCatalogSection
+public record VideoDownloaderSection
+{
+    public string DownloadPath { get; init; }
+    public string MovePath { get; init; }
+    public bool DeleteAfterDownload { get; init; } = false;
+}
+
+ public record VideoCatalogSection
 {
     public string PagesUrl {  get; init; } = string.Empty;
     public string PagesButton { get; init; } = string.Empty;
@@ -45,6 +50,7 @@ public record VideoCatalogSection
     public bool ForceRefreshCatalog { get; init; } = false;
     public bool ResumeScrape { get; init; } = false;
     public bool StopAfterCatalog { get; init; } = false;
+    public int WaitAfterPageLoadMs { get; init; } = 1000;
 }
 
 public record VideoScrapeSection
@@ -71,6 +77,7 @@ public record VideoScrapeSection
 
 public record StashSection
 {
+    public string StashPath { get; init; }
     public string StashUrl { get; init; } = string.Empty;
     public string StashApiKey { get; init; } = string.Empty;
     public string StashStudioId { get; init; } = string.Empty;

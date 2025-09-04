@@ -21,8 +21,6 @@ public sealed class Video
     public List<Performer> Performers { get; set;  } = new();
     public List<string> Tags { get; set; }
     public string DownloadedFile { get; set; }
-
-    //public bool DownloadComplete { get; set; } = false;
     public bool ScrapeComplete { get; set; } = false;
     public bool StashComplete { get; set; } = false;
 
