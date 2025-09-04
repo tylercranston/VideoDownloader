@@ -1,6 +1,7 @@
 ﻿using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using PuppeteerSharp;
+using System.IO;
 using VideoDownloader;
 using static System.Net.Mime.MediaTypeNames;
 
@@ -66,6 +67,14 @@ public sealed class BrowserFactory : IBrowserFactory
         {
             _page = await browser.NewPageAsync();
         }
+
+        Directory.CreateDirectory(_config.VideoDownloader.DownloadPath);
+
+        await _page.Client.SendAsync("Page.setDownloadBehavior", new
+        {
+            behavior = "allow",
+            downloadPath = _config.VideoDownloader.DownloadPath
+        });
 
         // Set user agent if configured
         if (!string.IsNullOrWhiteSpace(_config.Browser.UserAgent))

@@ -39,6 +39,8 @@ public sealed class VideoDownloader : IVideoDownloader
 
                 await page.WaitForXPathAsync(_config.VideoScrape.SceneDownloadButtonSelector);
 
+                ct.ThrowIfCancellationRequested();
+
                 var downloadButton = await page.XPathAsync(_config.VideoScrape.SceneDownloadButtonSelector);
                 await downloadButton[0].ClickAsync();
 
@@ -59,6 +61,8 @@ public sealed class VideoDownloader : IVideoDownloader
                     if (chosenLink != null)
                         break;
                 }
+
+                ct.ThrowIfCancellationRequested();
 
                 if (chosenLink != null)
                 {
