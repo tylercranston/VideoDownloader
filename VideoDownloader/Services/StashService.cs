@@ -1,6 +1,8 @@
 ﻿using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using System.Globalization;
+using System.Linq.Expressions;
 using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
@@ -84,7 +86,7 @@ query FindScenes($filter: FindFilterType!) {
             {
                 filter = new
                 {
-                    q = filePath
+                    q = $"""{filePath}"""
                 }
             };
             var querySceneResponse = await GraphQLAsync(queryScene, queryVars, ct);
@@ -177,7 +179,7 @@ query FindPerformers($filter: FindFilterType!) {
             {
                 filter = new
                 {
-                    q = performer.Name
+                    q = performer.Name.Trim()
                 }
             };
             var queryPerformerFindResponse = await GraphQLAsync(queryPerformerFind, queryPerformerFindVars, ct);
@@ -185,7 +187,7 @@ query FindPerformers($filter: FindFilterType!) {
             try
             {
                 var performersArray = queryPerformerFindResponse.RootElement.GetProperty("data").GetProperty("findPerformers").GetProperty("performers");
-                performerId = performersArray.EnumerateArray().Where(p => p.GetProperty("name").GetString().ToUpper() == performer.Name.ToUpper()).Select(p => p.GetProperty("id").GetString()).FirstOrDefault();
+                performerId = performersArray.EnumerateArray().Where(p => p.GetProperty("name").GetString().ToUpper() == performer.Name.Trim().ToUpper()).Select(p => p.GetProperty("id").GetString()).FirstOrDefault();
             }
             catch
             {
@@ -212,41 +214,88 @@ mutation PerformerCreate($input: PerformerCreateInput!) {
     id
   }
 }";
+
                 var queryPerformerCreateVars = new
                 {
                     input = new
                     {
-                        name = performer.Name,
-                        url = performerUrl,
-                        image = performerImage
+                        name = performer.Name.Trim(),
+                        url = performerUrl.Trim()
                     }
                 };
 
                 var queryPerformerCreateResponse = await GraphQLAsync(queryPerformerCreate, queryPerformerCreateVars, ct);
-                performerIds.Add(queryPerformerCreateResponse.RootElement.GetProperty("data").GetProperty("performerCreate").GetProperty("id").ToString());
+                performerId = queryPerformerCreateResponse.RootElement.GetProperty("data").GetProperty("performerCreate").GetProperty("id").ToString();
             }
             // Update Performer
-            else
+
+            string performerCountry = performer.Country;
+            if (!string.IsNullOrWhiteSpace(performerCountry))
             {
-                const string queryPerformerUpdate = @"
-mutation PerformerUpdate($input: PerformerUpdateInput!) {
-  performerUpdate(input: $input) {
-    id
-  }
-}";
-                var queryPerformerUpdateVars = new
+                try
                 {
-                    input = new
-                    {
-                        id = performerId,
-                        name = performer.Name,
-                        url = performerUrl,
-                        image = performerImage
-                    }
-                };
-                var queryPerformerUpdateResponse = await GraphQLAsync(queryPerformerUpdate, queryPerformerUpdateVars, ct);
-                performerIds.Add(performerId);
+                    var regions = CultureInfo.GetCultures(CultureTypes.SpecificCultures).Select(x => new RegionInfo(x.LCID));
+                    var englishRegion = regions.FirstOrDefault(region => region.EnglishName.Contains(performerCountry));
+                    performerCountry = englishRegion.TwoLetterISORegionName;
+                }
+                catch
+                {
+                    performerCountry = performer.Country;
+                }
             }
+
+            string? performerGender = null;
+            if (Enum.TryParse<PerformerGender>(performer.Gender, ignoreCase: true, out var gender))
+            {
+                performerGender = gender.ToString();
+            }
+
+            string? performerCircumcised = null;
+            if (Enum.TryParse<PerformerCircumcised>(performer.Circumcised, ignoreCase: true, out var circumcised))
+            {
+                performerCircumcised = circumcised.ToString();
+            }
+
+            string? performerWeight = null;
+            if (_config.Stash.PerformerWeightConvert && performer.Weight != null)
+            {
+                performerWeight = Helpers.PoundsToKilograms(performer.Weight).ToString();
+            }
+
+            string? performerHeight = null;
+            if (_config.Stash.PerformerHeightConvert && performer.Height != null)
+            {
+                performerHeight = Helpers.HeightToCentimeters(performer.Height).ToString();
+            }
+
+            const string queryPerformerUpdate = @"
+mutation PerformerUpdate($input: PerformerUpdateInput!) {
+performerUpdate(input: $input) {
+id
+}
+}";
+            var queryPerformerUpdateVars = new
+            {
+                input = new
+                {
+                    id = performerId,
+                    name = performer.Name.Trim(),
+                    url = performerUrl.Trim(),
+                    image = performerImage?.Trim(),
+                    details = performer.Details?.Trim(),
+                    country = performerCountry?.Trim(),
+                    eye_color = performer.EyeColor?.Trim(),
+                    hair_color = performer.HairColor?.Trim(),
+                    ethnicity = performer.Ethnicity?.Trim(),
+                    height_cm = performerHeight?.Trim(),
+                    weight = performerWeight?.Trim(),
+                    gender = performerGender?.Trim(),
+                    circumcised = performerCircumcised?.Trim()
+
+                }
+            };
+            var queryPerformerUpdateResponse = await GraphQLAsync(queryPerformerUpdate, queryPerformerUpdateVars, ct);
+            performerIds.Add(performerId);
         }
 
         // Find studio
@@ -308,6 +357,27 @@ mutation StudioCreate($input:StudioCreateInput!) {
         }
 
         // Update scene
+
+        string videoUrl;
+        if (!string.IsNullOrWhiteSpace(_config.Stash.SceneUrlSearch))
+        {
+            videoUrl = video.Url.Replace(_config.Stash.SceneUrlSearch, _config.Stash.SceneUrlReplace);
+        }
+        else
+        {
+            videoUrl = video.Url;
+        }
+
+        string videoCoverImage;
+        if (!string.IsNullOrWhiteSpace(_config.Stash.SceneCoverImageSearch))
+        {
+            videoCoverImage = video.CoverImage.Replace(_config.Stash.SceneCoverImageSearch, _config.Stash.SceneCoverImageReplace);
+        }
+        else
+        {
+            videoCoverImage = video.CoverImage;
+        }
+
         const string updateMutation = @"
 mutation SceneUpdate($input: SceneUpdateInput!) {
   sceneUpdate(input: $input) {
@@ -319,14 +389,14 @@ mutation SceneUpdate($input: SceneUpdateInput!) {
             input = new
             {
                 id = sceneId,
-                title = video.Title,
-                details = video.Details,
-                url = video.Url.Replace(_config.Stash.SceneUrlSearch, _config.Stash.SceneUrlReplace),
-                date = video.Date.Value.ToString("yyyy-MM-dd"),
+                title = video.Title.Trim(),
+                details = video.Details?.Trim(),
+                url = videoUrl.Trim(),
+                date = video.Date?.ToString("yyyy-MM-dd"),
                 tag_ids = tagIds,
                 performer_ids = performerIds,
                 studio_id = studioId,
-                cover_image = video.CoverImage
+                cover_image = videoCoverImage?.Trim()
 
             }
         };
@@ -368,7 +438,7 @@ mutation SceneUpdate($input: SceneUpdateInput!) {
         {
             return JsonDocument.Parse(text);
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             throw new Exception(string.Format("Failed to parse GraphQL JSON: {Body}", text));
         }

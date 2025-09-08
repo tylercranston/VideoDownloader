@@ -37,28 +37,26 @@ public sealed class VideoCatalogService : IVideoCatalogService
             if (all.Count > 0)
             {
                 _log.LogInformation($"Using cached catalog ({all.Count} videos)");
-                if (!_config.VideoCatalog.ResumeScrape)
-                {
-                    ct.ThrowIfCancellationRequested();
-
-                    return all;
-                }
             }
         }
 
-        var startPage = _config.VideoCatalog.StartPage;
-        var endPage = _config.VideoCatalog.EndPage;
-
-        _log.LogInformation($"Building catalog by crawling pages {startPage}..{endPage}");
-        
-        for (int i = _config.VideoCatalog.StartPage; i <= _config.VideoCatalog.EndPage && !ct.IsCancellationRequested; i++)
+        if (all.Count == 0 || _config.VideoCatalog.ResumeScrape || _config.VideoCatalog.ForceRefreshCatalog)
         {
-            all.AddRange(await _listCrawler.CrawlVideoLinksOnPageAsync(i, ct));
-            await _repo.SaveAsync(cacheFile, all, ct);
+            var startPage = _config.VideoCatalog.StartPage;
+            var endPage = _config.VideoCatalog.EndPage;
+
+            _log.LogInformation($"Building catalog by crawling pages {startPage}..{endPage}");
+
+            for (int i = _config.VideoCatalog.StartPage; i <= _config.VideoCatalog.EndPage && !ct.IsCancellationRequested; i++)
+            {
+                all.AddRange(await _listCrawler.CrawlVideoLinksOnPageAsync(i, ct));
+                await _repo.SaveAsync(cacheFile, all, ct);
+            }
         }
 
         if (_config.VideoCatalog.StopAfterCatalog)
         {
+            await _repo.SaveAsync(cacheFile, all, ct);
             _log.LogInformation("Stopping after catalog as configured.");
             Environment.Exit(0);
         }

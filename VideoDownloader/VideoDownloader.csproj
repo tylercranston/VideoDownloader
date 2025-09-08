@@ -15,6 +15,12 @@
   </ItemGroup>
 
   <ItemGroup>
+    <None Update="appsettings.EuroBoyXXX.json">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="appsettings.MachoFucker.json">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Update="appsettings.Falcon.json">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>

@@ -30,6 +30,7 @@ public sealed class VideoListCrawler : IVideoListCrawler
     {
         IElementHandle[] videoTitles = Array.Empty<IElementHandle>();
         IElementHandle[] videoAnchors = Array.Empty<IElementHandle>();
+        IElementHandle[] videoDates = Array.Empty<IElementHandle>();
 
         int maxRetries = 3;
 
@@ -41,6 +42,7 @@ public sealed class VideoListCrawler : IVideoListCrawler
 
                 var pageUrl = string.Format(_config.VideoCatalog.PagesUrl, pageNum);
                 await page.GoToAsync(pageUrl, new NavigationOptions { WaitUntil = new[] { WaitUntilNavigation.Networkidle0 } });
+                await Task.Delay(_config.VideoCatalog.WaitAfterPageLoadMs);
                 await PageExtensions.ScrollToEndAsync(page);
 
                 await Task.Delay(_config.VideoCatalog.WaitAfterPageLoadMs);
@@ -48,9 +50,23 @@ public sealed class VideoListCrawler : IVideoListCrawler
                 videoTitles = await page.XPathAsync(_config.VideoCatalog.VideoListTitle);
                 videoAnchors = await page.XPathAsync(_config.VideoCatalog.VideoListLink);
 
-                if (videoTitles.Length != videoAnchors.Length)
+                if (_config.VideoCatalog.ScrapeDate)
                 {
-                    throw new Exception($"Titles and Links on page must be equal (Page:{pageNum}, Titles: {videoTitles.Length}, Links: {videoAnchors.Length})");
+                    videoDates = await page.XPathAsync(_config.VideoCatalog.VideoListDate);
+                }
+
+                if (videoTitles.Length != videoAnchors.Length || _config.VideoCatalog.ScrapeDate && videoTitles.Length != videoDates.Length)
+                {
+                    string errorMessage;
+                    if (_config.VideoCatalog.ScrapeDate)
+                    {
+                        errorMessage = $"Titles and Links and Dates on page must be equal (Page:{pageNum}, Titles: {videoTitles.Length}, Links: {videoAnchors.Length}, Dates: {videoDates.Length})";
+                    }
+                    else
+                    {
+                        errorMessage = $"Titles and Links on page must be equal (Page:{pageNum}, Titles: {videoTitles.Length}, Links: {videoAnchors.Length})";
+                    }
+                        throw new Exception(errorMessage);
                 }
 
                 if (_config.VideoCatalog.VideosPerPage != 0 && videoTitles.Length != _config.VideoCatalog.VideosPerPage && pageNum != _config.VideoCatalog.EndPage)
@@ -84,7 +100,7 @@ public sealed class VideoListCrawler : IVideoListCrawler
 
         var videos = new List<Video>();
 
-        for (int i = 0; i < _config.VideoCatalog.VideosPerPage - 1; i++)
+        for (int i = 0; i <= videoTitles.Length - 1; i++)
         {
             for (int attempt = 1; attempt <= maxRetries; attempt++)
             {
@@ -92,11 +108,29 @@ public sealed class VideoListCrawler : IVideoListCrawler
                 {
                     var title = await (await videoTitles[i].GetPropertyAsync("innerText")).JsonValueAsync<string>();
                     var href = await (await videoAnchors[i].GetPropertyAsync("href")).JsonValueAsync<string>();
+                    DateOnly? date;
+
+                    if (_config.VideoCatalog.ScrapeDate)
+                    {
+                        var dateText = await (await videoDates[i].GetPropertyAsync("innerText")).JsonValueAsync<string>();
+                        date = Helpers.TryParseDate(dateText, _config.VideoCatalog.DateFormat, _config.VideoCatalog.DateRemoveSuffix);
+                    }
+                    else
+                    {
+                        date = null;
+                    }
 
                     if (!string.IsNullOrEmpty(_config.VideoCatalog.AllowedHrefPrefix) && !href.StartsWith(_config.VideoCatalog.AllowedHrefPrefix, StringComparison.OrdinalIgnoreCase))
                         continue;
 
-                    videos.Add(new Video(title.Trim(), href, pageNum));
+                    if (_config.VideoCatalog.ScrapeDate)
+                    {
+                        videos.Add(new Video(title.Trim(), href, date, pageNum));
+                    }
+                    else
+                    {
+                        videos.Add(new Video(title.Trim(), href, pageNum));
+                    }
 
                     break;
                 }
@@ -159,4 +193,8 @@ public static class PageExtensions
             scrollCount++;
         }
     }
+
+
+
+
 }

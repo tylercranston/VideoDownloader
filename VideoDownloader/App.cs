@@ -10,6 +10,8 @@ namespace VideoDownloader;
 
 public sealed class App : BackgroundService
 {
+    private List<Video> _videos = new();
+
     private readonly IBrowserFactory _browser;
     private readonly IVideoCatalogService _catalog;
     private readonly IVideoRepository _repo;
@@ -42,64 +44,87 @@ public sealed class App : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken ct)
     {
-        var cacheFile = Path.Combine(_config.Config.VideoCachePath, String.Format("{0}.json", _config.Name));
+        string cacheFile;
+        if (!string.IsNullOrWhiteSpace(_config.Config.VideoCacheFileName))
+        {
+            cacheFile = Path.Combine(_config.Config.VideoCachePath, _config.Config.VideoCacheFileName);
+        }
+        else
+        {
+            cacheFile = Path.Combine(_config.Config.VideoCachePath, String.Format("{0}.json", _config.Name));
+        }
 
         // Exit application if download folder is not empty
         EnsureCleanDownloadFolder(_config.VideoDownloader.DownloadPath);
 
         // Catalog all videos
-        var videos = await _catalog.GetAllAsync(cacheFile, ct);
-        _log.LogInformation($"Catalog contains {videos.Count} videos");
+        _videos = await _catalog.GetAllAsync(cacheFile, ct);
+        _log.LogInformation($"Catalog contains {_videos.Count} videos");
 
         // Process videos
-        await ProcessVideosAsync(videos, cacheFile, ct);
+        await ProcessVideosAsync(cacheFile, ct);
+
+        await _browser.DisposeAsync();
+        Environment.Exit(0);
     }
 
-    private async Task ProcessVideosAsync(List<Video> videos, string cacheFile, CancellationToken ct)
+    private async Task ProcessVideosAsync(string cacheFile, CancellationToken ct)
     {
-        (int startVideo, int endVideo) = GetVideoRange(videos.Count);
+        (int startVideo, int endVideo) = GetVideoRange(_videos.Count);
 
+        int videoNum = 0;
         for (var i = startVideo; i <= endVideo && !ct.IsCancellationRequested; i++)
         {
             var index = i - 1;
+            var video = _videos[index];
 
-            // Process single video
-            await ProcessSingleVideoAsync(videos, index, cacheFile, ct);
+            if (!video.Ignore)
+            {
+                videoNum++;
+
+                // Process single video
+                await ProcessSingleVideoAsync(video, index, cacheFile, ct);
+
+                if (videoNum == _config.Config.QuitAfter)
+                {
+                    _log.LogInformation($"QuitAfter is set to {_config.Config.QuitAfter}, exiting after {videoNum} video.");
+                    break;
+                }
+            }
         }
-
     }
 
-    private async Task ProcessSingleVideoAsync(List<Video> videos, int index, string cacheFile, CancellationToken ct)
+    private async Task ProcessSingleVideoAsync(Video video, int index, string cacheFile, CancellationToken ct)
     {
-        var video = videos[index];
-
-        // 1) Download         
-        if (string.IsNullOrWhiteSpace(video.DownloadedFile))
+        if (!video.Ignore)
         {
-            video = await _downloader.DownloadVideoAsync(video, ct);
-            // Save state
-            videos[index] = video;
-            await _repo.SaveAsync(cacheFile, videos, ct);
-        }
+            // 1) Download       
+            if (string.IsNullOrWhiteSpace(video.DownloadedFile))
+            {
+                video = await _downloader.DownloadVideoAsync(video, ct);
+                // Save state
+                _videos[index] = video;
+                await _repo.SaveAsync(cacheFile, _videos, ct);
+            }
 
-        // 2) Scrape
-        if (!video.ScrapeComplete || _config.VideoScrape.ScrapeComplete)
-        {
-            video = await _scraper.EnrichAsync(video, ct);
-            // Save state
-            videos[index] = video;
-            await _repo.SaveAsync(cacheFile, videos, ct);
-        }
+            // 2) Scrape
+            if (!video.ScrapeComplete || _config.VideoScrape.ScrapeComplete)
+            {
+                video = await _scraper.EnrichAsync(video, ct);
+                // Save state
+                _videos[index] = video;
+                await _repo.SaveAsync(cacheFile, _videos, ct);
+            }
 
-        // 3) Stash
-        if (!video.StashComplete || _config.Stash.ProcessComplete)
-        {
-            video = await _stash.CreateSceneAsync(video, ct);
-            // Save state
-            videos[index] = video;
-            await _repo.SaveAsync(cacheFile, videos, ct);
+            // 3) Stash
+            if (!video.StashComplete || _config.Stash.ProcessComplete)
+            {
+                video = await _stash.CreateSceneAsync(video, ct);
+                // Save state
+                _videos[index] = video;
+                await _repo.SaveAsync(cacheFile, _videos, ct);
+            }
         }
-
         return;
     }
 

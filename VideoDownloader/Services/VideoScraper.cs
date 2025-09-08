@@ -55,11 +55,16 @@ public sealed class VideoScraper : IVideoScraper
                     video.Details = await GetSingleTextAsync(page, _config.VideoScrape.SceneDetailsSelector, true, ct);
 
                     // Update Cover Image
-                    video.CoverImage = await GetSingleTextAsync(page, _config.VideoScrape.SceneCoverImageSelector, true, ct);
+                    {
+                        video.CoverImage = await GetSingleTextAsync(page, _config.VideoScrape.SceneCoverImageSelector, true, ct);
+                    }
 
-                    // Update Date
-                    var dateText = await GetSingleTextAsync(page, _config.VideoScrape.SceneDateSelector, true, ct);
-                    video.Date = TryParseDate(dateText, _config.VideoScrape.DateFormat);
+                    if (!_config.VideoCatalog.ScrapeDate)
+                    {
+                        // Update Date
+                        var dateText = await GetSingleTextAsync(page, _config.VideoScrape.SceneDateSelector, true, ct);
+                        video.Date = Helpers.TryParseDate(dateText, _config.VideoScrape.DateFormat);
+                    }
 
                     // Update Tags
                     video.Tags = (await GetManyTextAsync(page, _config.VideoScrape.SceneTagsSelector, false, ct)).ToList();
@@ -68,7 +73,7 @@ public sealed class VideoScraper : IVideoScraper
                     video.Studio = await GetSingleTextAsync(page, _config.VideoScrape.SceneStudioSelector, false, ct);
 
                     // Update Performers
-                    video.Performers.Clear();
+                    video.Performers = new List<Performer>();
                     var performers = await page.XPathAsync(_config.VideoScrape.ScenePerformersSelector);
                     foreach (var performer in performers)
                     {
@@ -100,8 +105,42 @@ public sealed class VideoScraper : IVideoScraper
 
                         ct.ThrowIfCancellationRequested();
 
+                        // Update Name
+                        if (!string.IsNullOrWhiteSpace(_config.VideoScrape.PerformerName))
+                            performer.Name = await GetSingleTextAsync(page, _config.VideoScrape.PerformerName, false, ct);
+
                         // Update Cover Image
-                        performer.CoverImage = await GetSingleTextAsync(page, _config.VideoScrape.PerformerCoverImage, true, ct);
+                        performer.CoverImage = await GetSingleTextAsync(page, _config.VideoScrape.PerformerCoverImage, false, ct);
+
+                        // Update Details
+                        performer.Details = await GetSingleTextAsync(page, _config.VideoScrape.PerformerDetails, false, ct);
+
+                        // Update Details
+                        performer.Country = await GetSingleTextAsync(page, _config.VideoScrape.PerformerCountry, false, ct);
+
+                        // Update Gender
+                        performer.Gender = await GetSingleTextAsync(page, _config.VideoScrape.PerformerGender, false, ct);
+
+                        // Update Ethnicity
+                        performer.Ethnicity = await GetSingleTextAsync(page, _config.VideoScrape.PerformerEthnicity, false, ct);
+
+                        // Update Hair Color
+                        performer.HairColor = await GetSingleTextAsync(page, _config.VideoScrape.PerformerHairColor, false, ct);
+
+                        // Update Eye Color
+                        performer.EyeColor = await GetSingleTextAsync(page, _config.VideoScrape.PerformerEyeColor, false, ct);
+
+                        // Update Circumcised
+                        performer.Circumcised = await GetSingleTextAsync(page, _config.VideoScrape.PerformerCircumcised, false, ct);
+
+                        // Update Height
+                        performer.Height = await GetSingleTextAsync(page, _config.VideoScrape.PerformerHeight, false, ct);
+
+                        // Update Weight
+                        performer.Weight = await GetSingleTextAsync(page, _config.VideoScrape.PerformerWeight, false, ct);
+
+                        // Update Dick Size
+                        performer.DickSize = await GetSingleTextAsync(page, _config.VideoScrape.PerformerDickSize, false, ct);
 
                         ct.ThrowIfCancellationRequested();
                     }
@@ -150,7 +189,11 @@ public sealed class VideoScraper : IVideoScraper
         }
         var nodes = await page.XPathAsync(xpath);
         if (nodes.Length == 0) return null;
-        return await nodes[0].EvaluateFunctionAsync<string?>("el => (el.innerText || el.textContent || '').trim()");
+        var texts = await Task.WhenAll(
+            nodes.Select(n =>
+                n.EvaluateFunctionAsync<string>("el => (el.innerText || el.textContent || '').trim()"))
+        );
+        return string.Join(Environment.NewLine, texts.Where(t => !string.IsNullOrWhiteSpace(t)));
     }
 
     private static async Task<IEnumerable<string>> GetManyTextAsync(IPage page, string xpath, bool wait, CancellationToken ct)
@@ -169,32 +212,5 @@ public sealed class VideoScraper : IVideoScraper
                 list.Add(text!);
         }
         return list;
-    }
-
-    private static DateOnly? TryParseDate(string? raw, string dateFormat)
-    {
-        if (string.IsNullOrWhiteSpace(raw)) return null;
-
-        if (DateTime.TryParseExact(raw, dateFormat, System.Globalization.CultureInfo.InvariantCulture,
-                                    System.Globalization.DateTimeStyles.None, out var dt))
-        {
-            return DateOnly.FromDateTime(dt);
-        }
-
-        throw new FormatException($"Date '{raw}' does not match format '{dateFormat}'");
-
-        //// Try a few common formats, add your site’s exact format if known
-        //string[] fmts = { "yyyy-MM-dd", "MM/dd/yyyy", "dd/MM/yyyy", "MMM d, yyyy", "d MMM yyyy" };
-        //foreach (var f in fmts)
-        //{
-        //    if (DateTime.TryParseExact(raw, f, System.Globalization.CultureInfo.InvariantCulture,
-        //                               System.Globalization.DateTimeStyles.None, out var dt))
-        //        return DateOnly.FromDateTime(dt);
-        //}
-
-        //// Fallback to loose parse
-        //if (DateTime.TryParse(raw, out var any))
-        //    return DateOnly.FromDateTime(any);
-        //return null;
     }
 }

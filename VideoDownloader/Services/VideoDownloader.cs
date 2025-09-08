@@ -1,6 +1,7 @@
 ﻿using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using PuppeteerSharp;
+using System.IO;
 using VideoDownloader;
 using static System.Formats.Asn1.AsnWriter;
 
@@ -37,52 +38,90 @@ public sealed class VideoDownloader : IVideoDownloader
 
                 await page.GoToAsync(video.Url, new NavigationOptions { WaitUntil = new[] { WaitUntilNavigation.Networkidle0 } });
 
-                await page.WaitForXPathAsync(_config.VideoScrape.SceneDownloadButtonSelector);
+                if (_config.VideoDownloader.DownloadPopup)
+                {
+                    await page.WaitForXPathAsync(_config.VideoDownloader.SceneDownloadPopupSelector);
 
-                ct.ThrowIfCancellationRequested();
+                    ct.ThrowIfCancellationRequested();
 
-                var downloadButton = await page.XPathAsync(_config.VideoScrape.SceneDownloadButtonSelector);
-                await downloadButton[0].ClickAsync();
-
-                var downloadLinks = await page.XPathAsync(_config.VideoScrape.SceneDownloadLinkSelector);
+                    var downloadButton = await page.XPathAsync(_config.VideoDownloader.SceneDownloadPopupSelector);
+                    await downloadButton[0].ClickAsync();
+                }
 
                 string chosenLink = null;
 
-                foreach (var quality in _config.VideoScrape.PreferredQualities)
-                {
-                    foreach (var downloadLink in downloadLinks)
-                    {
-                        if ((await downloadLink.EvaluateFunctionAsync<string>("el => el.href")).Contains(quality))
-                        {
-                            chosenLink = await downloadLink.EvaluateFunctionAsync<string>("el => el.href");
-                        }
-                    }
-
-                    if (chosenLink != null)
-                        break;
-                }
-
+                await page.WaitForXPathAsync(_config.VideoDownloader.SceneDownloadLinkSelector);
                 ct.ThrowIfCancellationRequested();
 
-                if (chosenLink != null)
+                if (_config.VideoDownloader.DownloadType == DownloadType.MultiLink)
                 {
-                    try
+                    var downloadLinks = await page.XPathAsync(_config.VideoDownloader.SceneDownloadLinkSelector);
+
+                    if (downloadLinks.Length > 0)
                     {
-                        await page.GoToAsync(chosenLink);
+                        string query = null;
+                        if (_config.VideoDownloader.PreferredQualityType == PreferredQualityType.Url)
+                        {
+                            query = "el => el.href";
+                        }
+                        else if (_config.VideoDownloader.PreferredQualityType == PreferredQualityType.Title)
+                        {
+                            query = "el => (el.textContent ?? '').trim()";
+                        }
+
+                        foreach (var quality in _config.VideoDownloader.PreferredQualities)
+                        {
+                            foreach (var downloadLink in downloadLinks)
+                            {
+                                var linkTitle = await downloadLink.EvaluateFunctionAsync<string>(query);
+
+                                // Log the link title
+                                _log.LogDebug("Evaluating link with title: {Title}", linkTitle);
+
+                                if ((await downloadLink.EvaluateFunctionAsync<string>(query)).Contains(quality))
+                                {
+                                    chosenLink = await downloadLink.EvaluateFunctionAsync<string>("el => el.href");
+                                }
+                            }
+
+                            if (chosenLink != null)
+                                break;
+                        }
+                        
+                        new Exception(String.Format($"No download links with preferred quality found. Page={video.PageNum}, Video={video.Title}, Url={video.Url}"));
                     }
-                    catch (NavigationException ex) when (ex.Message.Contains("net::ERR_ABORTED"))
+                    else
                     {
-                        _log.LogInformation($"{video.Id}: Starting download");
-                    }
-                    catch (Exception ex)
-                    {
-                        new Exception(ex.Message);
+                        new Exception(String.Format($"No download links found. Page={video.PageNum}, Video={video.Title}, Url={video.Url}"));
                     }
                 }
-                else
+                else if (_config.VideoDownloader.DownloadType == DownloadType.SingleLink)
                 {
-                    new Exception(String.Format($"No matching quality link found. Page={video.PageNum}, Video={video.Title}, Url={video.Url}"));
+                    var downloadLink = await page.XPathAsync(_config.VideoDownloader.SceneDownloadLinkSelector);
+                    if (downloadLink.Length > 0)
+                    {
+                        chosenLink = await downloadLink[0].EvaluateFunctionAsync<string>("el => el.href");
+                    }
+                    else
+                    {
+                        new Exception(String.Format($"No download link found. Page={video.PageNum}, Video={video.Title}, Url={video.Url}"));
+                    }
                 }
+                ct.ThrowIfCancellationRequested();
+
+                try
+                {
+                    await page.GoToAsync(chosenLink);
+                }
+                catch (NavigationException ex) when (ex.Message.Contains("net::ERR_ABORTED"))
+                {
+                    _log.LogInformation($"{video.Id}: Starting download");
+                }
+                catch (Exception ex)
+                {
+                    new Exception(ex.Message);
+                }
+
                 break;
             }
             catch (Exception ex)
@@ -113,6 +152,8 @@ public sealed class VideoDownloader : IVideoDownloader
         string extension = Path.GetExtension(downloadedFile);
 
         string destinationPath = Path.Combine(targetDir, fileName + extension);
+
+        Directory.CreateDirectory(targetDir);
 
         int counter = 1;
         while (File.Exists(destinationPath))

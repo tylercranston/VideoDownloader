@@ -68,6 +68,12 @@ public sealed class BrowserFactory : IBrowserFactory
             _page = await browser.NewPageAsync();
         }
 
+        if (_config.Browser.Headers.Count > 0)
+        {
+            var headersDict = _config.Browser.Headers.ToDictionary(h => h.Name, h => h.Value);
+            await _page.SetExtraHttpHeadersAsync(headersDict);
+        }
+
         Directory.CreateDirectory(_config.VideoDownloader.DownloadPath);
 
         await _page.Client.SendAsync("Page.setDownloadBehavior", new
