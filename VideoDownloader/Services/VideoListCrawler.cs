@@ -106,31 +106,7 @@ public sealed class VideoListCrawler : IVideoListCrawler
             {
                 try
                 {
-                    var title = await (await videoTitles[i].GetPropertyAsync("innerText")).JsonValueAsync<string>();
-                    var href = await (await videoAnchors[i].GetPropertyAsync("href")).JsonValueAsync<string>();
-                    DateOnly? date;
 
-                    if (_config.VideoCatalog.ScrapeDate)
-                    {
-                        var dateText = await (await videoDates[i].GetPropertyAsync("innerText")).JsonValueAsync<string>();
-                        date = Helpers.TryParseDate(dateText, _config.VideoCatalog.DateFormat, _config.VideoCatalog.DateRemoveSuffix);
-                    }
-                    else
-                    {
-                        date = null;
-                    }
-
-                    if (!string.IsNullOrEmpty(_config.VideoCatalog.AllowedHrefPrefix) && !href.StartsWith(_config.VideoCatalog.AllowedHrefPrefix, StringComparison.OrdinalIgnoreCase))
-                        continue;
-
-                    if (_config.VideoCatalog.ScrapeDate)
-                    {
-                        videos.Add(new Video(title.Trim(), href, date, pageNum));
-                    }
-                    else
-                    {
-                        videos.Add(new Video(title.Trim(), href, pageNum));
-                    }
 
                     break;
                 }
@@ -193,8 +169,4 @@ public static class PageExtensions
             scrollCount++;
         }
     }
-
-
-
-
 }

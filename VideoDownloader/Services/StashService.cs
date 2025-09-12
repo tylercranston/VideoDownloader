@@ -86,7 +86,7 @@ query FindScenes($filter: FindFilterType!) {
             {
                 filter = new
                 {
-                    q = $"""{filePath}"""
+                    q = $"\"{filePath}\""
                 }
             };
             var querySceneResponse = await GraphQLAsync(queryScene, queryVars, ct);
@@ -122,7 +122,7 @@ query FindTags($filter: FindFilterType!) {
             {
                 filter = new
                 {
-                    q = tag
+                    q = $"\"{tag}\""
                 }
             };
             var queryTagFindResponse = await GraphQLAsync(queryTagFind, queryVars, ct);
@@ -179,7 +179,7 @@ query FindPerformers($filter: FindFilterType!) {
             {
                 filter = new
                 {
-                    q = performer.Name.Trim()
+                    q = $"\"{performer.Name.Trim()}\""
                 }
             };
             var queryPerformerFindResponse = await GraphQLAsync(queryPerformerFind, queryPerformerFindVars, ct);
